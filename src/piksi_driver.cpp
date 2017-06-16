@@ -21,6 +21,7 @@ namespace swiftnav_piksi
 		port( _port ),
         baud_rate(_baud_term_rate),
 		frame_id( "gps" ),
+        name("gps"),
 		piksid( -1 ),
 
         heartbeat_diag(nh, nh_priv, "ppiksi_time_diag"),
@@ -77,6 +78,7 @@ namespace swiftnav_piksi
 		rtk_diag.add( rtk_pub_freq );
 
 		nh_priv.param( "frame_id", frame_id, (std::string)"gps" );
+        nh_priv.param( "name", name, (std::string)"gps");
 	}
 
 	PIKSI::~PIKSI( )
@@ -117,9 +119,17 @@ namespace swiftnav_piksi
 //		sbp_register_callback(&state, SBP_VEL_ECEF, &vel_ecefCallback, (void*) this, &vel_ecef_callback_node);
 		sbp_register_callback(&state, SBP_MSG_VEL_NED, &vel_ned_callback, (void*) this, &vel_ned_callback_node);
 
-		llh_pub = nh.advertise<sensor_msgs::NavSatFix>( "gps/fix", 1 );
-		rtk_pub = nh.advertise<nav_msgs::Odometry>( "gps/rtkfix", 1 );
-		time_pub = nh.advertise<sensor_msgs::TimeReference>( "gps/time", 1 );
+        std::string llh_pub_topic(name);
+        llh_pub_topic.append("/fix");
+		llh_pub = nh.advertise<sensor_msgs::NavSatFix>( llh_pub_topic, 1 );
+
+        std::string rtk_pub_topic(name);
+        rtk_pub_topic.append("/rtkfix");
+		rtk_pub = nh.advertise<nav_msgs::Odometry>( rtk_pub_topic, 1 );
+
+        std::string time_ref_topic(name);
+        time_ref_topic.append("/time");
+		time_pub = nh.advertise<sensor_msgs::TimeReference>( time_ref_topic, 1 );
 
 		return true;
 	}

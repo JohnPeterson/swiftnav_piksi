@@ -94,6 +94,7 @@ namespace swiftnav_piksi
 		std::string port;
         int baud_rate;
 		std::string frame_id;
+        std::string name;
 		int8_t piksid;
 		boost::mutex cmd_lock;
 
