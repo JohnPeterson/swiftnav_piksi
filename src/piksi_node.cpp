@@ -37,6 +37,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
 
+#include <swiftnav_piksi/piksi.h> // we need baud2term
 #include <swiftnav_piksi/piksi_driver.h>
 
 #include <ros/ros.h>
@@ -65,9 +66,14 @@ int main( int argc, char *argv[] )
 	std::string port;
 	nh_priv.param( "port", port, (const std::string)"/dev/ttyUSB0" );
 
-	swiftnav_piksi::PIKSI piksi( nh, nh_priv, port );
+	int baud_rate;
+	nh_priv.param("baud_rate", baud_rate, 1000000); // this is the default rate for the piksi 1
 
-	ROS_DEBUG( "Opening Piksi on %s", port.c_str( ) );
+	int term_baud_rate = baud2term( baud_rate );
+
+	swiftnav_piksi::PIKSI piksi( nh, nh_priv, port,  term_baud_rate);
+
+	ROS_INFO( "Opening Piksi on %s at %d", port.c_str( ), baud_rate);
 	if( !piksi.PIKSIOpen( ) )
 		ROS_ERROR( "Failed to open Piksi on %s", port.c_str( ) );
 	else

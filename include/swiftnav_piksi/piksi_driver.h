@@ -65,9 +65,9 @@ namespace swiftnav_piksi
 	class PIKSI
 	{
 	public:
-		PIKSI( const ros::NodeHandle &_nh = ros::NodeHandle( ),
-			const ros::NodeHandle &_nh_priv = ros::NodeHandle( "~" ),
-			const std::string _port = "/dev/ttyUSB0" );
+		PIKSI( const ros::NodeHandle &_nh,
+			const ros::NodeHandle &_nh_priv,
+			const std::string _port, const int _baud_rate);
 		~PIKSI( );
 		bool PIKSIOpen( );
 		void PIKSIClose( );
@@ -92,6 +92,7 @@ namespace swiftnav_piksi
 		ros::NodeHandle nh;
 		ros::NodeHandle nh_priv;
 		std::string port;
+        int baud_rate;
 		std::string frame_id;
 		int8_t piksid;
 		boost::mutex cmd_lock;

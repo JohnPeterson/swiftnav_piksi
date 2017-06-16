@@ -45,6 +45,8 @@ extern "C" {
 
 #include <libsbp/sbp.h>
 
+#include <termios.h>
+
 enum piksi_error
 {
 	PIKSI_SUCCESS = 0,
@@ -55,13 +57,59 @@ enum piksi_error
 	PIKSI_ERROR_TIMEOUT = -14
 };
 
-int piksi_open( const char *port );
+int piksi_open( const char *port, const int baud_term_rate);
 void piksi_close( const int8_t piksid );
 
 u8 piksi_spin( const int8_t piksid );
 
 u32 send_cmd( u8 *data, u32 num_bytes, void* context );
 u32 read_data( u8 *data, u32 num_bytes, void* context );
+
+static int baud2term( int baud )
+{
+    switch( baud )
+    {
+    case 1200:
+        return B1200;
+        break;
+    case 2400:
+        return B2400;
+        break;
+    case 4800:
+        return B4800;
+        break;
+    case 9600:
+        return B9600;
+        break;
+    case 19200:
+        return B19200;
+        break;
+    case 38400:
+        return B38400;
+        break;
+    case 57600:
+        return B57600;
+        break;
+    case 115200:
+        return B115200;
+        break;
+    case 230400:
+        return B230400;
+        break;
+    case 460800:
+        return B460800;
+        break;
+    case 921600:
+        return B921600;
+        break;
+    case 1000000:
+        return B1000000;
+        break;
+    default:
+        return B0;
+        break;
+    }
+}
 
 
 #ifdef __cplusplus

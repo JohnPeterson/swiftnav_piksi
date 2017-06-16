@@ -84,52 +84,6 @@ static int next_available_handle( )
 	return -1;
 }
 
-static int baud2term( int baud )
-{
-	switch( baud )
-	{
-	case 1200:
-		return B1200;
-		break;
-	case 2400:
-		return B2400;
-		break;
-	case 4800:
-		return B4800;
-		break;
-	case 9600:
-		return B9600;
-		break;
-	case 19200:
-		return B19200;
-		break;
-	case 38400:
-		return B38400;
-		break;
-	case 57600:
-		return B57600;
-		break;
-	case 115200:
-		return B115200;
-		break;
-	case 230400:
-		return B230400;
-		break;
-	case 460800:
-		return B460800;
-		break;
-	case 921600:
-		return B921600;
-		break;
-	case 1000000:
-		return B1000000;
-		break;
-	default:
-		return B0;
-		break;
-	}
-}
-
 u32 send_cmd( u8 *data, u32 num_bytes, void* context )
 {
 	int8_t piksid = *( int8_t* ) context;
@@ -153,7 +107,7 @@ u32 read_data( u8 *data, u32 num_bytes, void* context )
 }
 
 
-int piksi_open( const char *port )
+int piksi_open( const char *port , const int baud_term_rate)
 {
 	/* Step 1: Make sure the device opens OK */
 	int fd = open( port, O_RDWR | O_NOCTTY | O_NDELAY );
@@ -164,7 +118,7 @@ int piksi_open( const char *port )
 
 	struct termios options;
 	cfmakeraw( &options );
-	if( cfsetispeed( &options, B1000000 ) < 0 )
+	if( cfsetispeed( &options, baud_term_rate ) < 0 )
 	{
 		close( fd );
 		return PIKSI_ERROR_IO;
@@ -196,7 +150,7 @@ int piksi_open( const char *port )
 
 	memcpy( piksi_list[mydev]->port, port, strlen( port ) + 1 );
 	piksi_list[mydev]->fd = fd;
-	piksi_list[mydev]->baud = baud2term( 1000000 );
+	piksi_list[mydev]->baud = baud_term_rate;
 
 	return mydev;
 

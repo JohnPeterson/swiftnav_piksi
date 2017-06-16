@@ -14,10 +14,12 @@ namespace swiftnav_piksi
 {	
 	PIKSI::PIKSI( const ros::NodeHandle &_nh,
 		const ros::NodeHandle &_nh_priv,
-		const std::string _port ) :
+		const std::string _port,
+        const int _baud_term_rate) :
 		nh( _nh ),
 		nh_priv( _nh_priv ),
 		port( _port ),
+        baud_rate(_baud_term_rate),
 		frame_id( "gps" ),
 		piksid( -1 ),
 
@@ -94,7 +96,7 @@ namespace swiftnav_piksi
 		if( piksid >= 0 )
 			return true;
 
-		piksid = piksi_open( port.c_str( ) );
+		piksid = piksi_open( port.c_str( ), baud_rate );
 
 		if( piksid < 0 )
 		{
