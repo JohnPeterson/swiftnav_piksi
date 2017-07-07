@@ -57,7 +57,12 @@ namespace swiftnav_piksi
         llh_lon( 0.0 ),
         llh_height( 0.0 ),
         llh_h_accuracy( 0.0 ),
-        hdop( 1.0 ),
+
+        hdop( 1000.0 ),
+        vdop( 1000.0 ),
+        hdop_to_rtk_h_accuracy(0.02), // best accuracy of 2 cm horizontal
+        vdop_to_rtk_v_accuracy(0.04), // best accuracy of 4 cm vertical
+        rtk_float_accuracy_factor(10.0), // rtk float has errors 10 times greater, (this is a guess)
 
         rtk_timeout(0.2),
         last_rtk_status_t(0.0),
@@ -264,8 +269,10 @@ namespace swiftnav_piksi
 		llh_msg->altitude = llh.height;
 
         // populate the covariance matrix
-        double h_covariance = (llh.h_accuracy / 1000.0) * (llh.h_accuracy / 1000.0); // accuracy originally in mm
-        double v_covariance = (llh.v_accuracy / 1000.0) * (llh.v_accuracy / 1000.0);
+        // double h_covariance = (llh.h_accuracy / 1000.0) * (llh.h_accuracy / 1000.0); // accuracy originally in mm
+        // double v_covariance = (llh.v_accuracy / 1000.0) * (llh.v_accuracy / 1000.0);
+        double h_covariance = 1000.0; // we don't know the accuracy
+        double v_covariance = 1000.0; 
         llh_msg->position_covariance[0]  = h_covariance;   // x = 0, 0 
         llh_msg->position_covariance[4]  = h_covariance;   // y = 1, 1 
         llh_msg->position_covariance[8]  = v_covariance;   // z = 2, 2 
@@ -300,6 +307,11 @@ namespace swiftnav_piksi
 
         // FIXME: this is incorrect, but h_accuracy doesn't work yet
         driver->llh_h_accuracy = dops.hdop;
+
+        // pull out dillution of precision for trying to estimate covariance matrix
+        driver->hdop = 0.01 * dops.hdop;
+        driver->vdop = 0.01 * dops.vdop; // have units of 1/100
+
         //driver->heartbeat_pub_freq.tick();
 
 		return;
@@ -415,18 +427,16 @@ namespace swiftnav_piksi
         rtk_odom_msg->pose.pose.orientation.z = 0;
         rtk_odom_msg->pose.pose.orientation.w = 1.0;
 
-        double h_covariance = sbp_ned.h_accuracy * sbp_ned.h_accuracy / 1.0e6;
-        double v_covariance = sbp_ned.v_accuracy * sbp_ned.v_accuracy / 1.0e6;
+        // NOTE the sbp_ned.h_accuracy and sbp_ned.v_accuracy are not 
+        // implemented for the piksi v1
 
-        // populate the pose covariance matrix if we have a good fix
-        if ( 1 == sbp_ned.flags && 4 < sbp_ned.n_sats)
+        double h_covariance = (driver->hdop * driver->hdop_to_rtk_h_accuracy) * (driver->hdop * driver->hdop_to_rtk_h_accuracy);
+        double v_covariance = (driver->vdop * driver->vdop_to_rtk_v_accuracy) * (driver->vdop * driver->vdop_to_rtk_v_accuracy);
+
+        if (sbp_ned.flags != 1) // in float add an extra fudge factor
         {
-            // FIXME: h_accuracy doesn't work yet, so use hard-coded 4cm
-            // until it does
-            //
-            //v_covariance = (sbp_ned.v_accuracy * sbp_ned.v_accuracy) / 1.0e-6;
-            h_covariance = driver->rtk_h_accuracy * driver->rtk_h_accuracy;
-            v_covariance = driver->rtk_h_accuracy * driver->rtk_h_accuracy;
+            h_covariance *= driver->rtk_float_accuracy_factor * driver->rtk_float_accuracy_factor;
+            v_covariance *= driver->rtk_float_accuracy_factor * driver->rtk_float_accuracy_factor;
         }
 
         // Pose x/y/z covariance is whatever we decided h & v covariance is

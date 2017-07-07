@@ -157,7 +157,16 @@ namespace swiftnav_piksi
         double llh_lon;
         double llh_height;
         double llh_h_accuracy;
+
+        // Dillution of precision
         double hdop;
+        double vdop;
+
+        double hdop_to_rtk_h_accuracy; // fudge factors for conversion
+        double vdop_to_rtk_v_accuracy; // because the driver does not correctly
+        // return h and v accuracies as it is supposed to
+        double rtk_float_accuracy_factor; // bigger than 1 how much worse are we
+        // when we are in rtk float than rtk fix
 
         ros::Duration rtk_timeout;
         ros::Time last_rtk_status_t; // only used by the timeout check
