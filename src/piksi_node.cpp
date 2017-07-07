@@ -75,9 +75,16 @@ int main( int argc, char *argv[] )
 
 	ROS_INFO( "Opening Piksi on %s at %d", port.c_str( ), baud_rate);
 	if( !piksi.PIKSIOpen( ) )
+	{
+
 		ROS_ERROR( "Failed to open Piksi on %s", port.c_str( ) );
+	}
 	else
+	{
 		ROS_INFO( "Piksi opened successfully on %s", port.c_str( ) );
+	}
+
+	ros::Timer status_timeout = nh.createTimer(ros::Duration(0.04), &swiftnav_piksi::PIKSI::checkTimeout, &piksi);
 
 	ros::spin( );
 

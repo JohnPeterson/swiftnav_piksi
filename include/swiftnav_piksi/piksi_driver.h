@@ -70,11 +70,14 @@ namespace swiftnav_piksi
 		~PIKSI();
 		bool PIKSIOpen();
 		void PIKSIClose();
+        void checkTimeout(const ros::TimerEvent& evt);
 	private:
 		bool PIKSIOpenNoLock();
 		void PIKSICloseNoLock();
 		void spin();
 		void spinOnce();
+        void pubRTKStatus();
+        void pubLLHStatus();
 		/*!
 		 * \brief Diagnostic update callback
 		 *
@@ -133,7 +136,9 @@ namespace swiftnav_piksi
 		diagnostic_updater::FrequencyStatus heartbeat_pub_freq;
 
 		ros::Publisher llh_pub;
+        ros::Publisher llh_status_pub;
 		ros::Publisher rtk_pub;
+        ros::Publisher rtk_status_pub;
 		ros::Publisher time_pub;
 
         // Diagnostic Data
@@ -143,6 +148,9 @@ namespace swiftnav_piksi
 		unsigned int last_open_failure_count;
         unsigned int heartbeat_flags;       //!< Flags from heartbeat msg
 
+        ros::Duration llh_timeout;
+        ros::Time last_llh_status_t;
+        ros::Time last_llh_fix;
         unsigned int num_llh_satellites;   //!< Number of satellites used in llh soln
         unsigned int llh_status;           //!< Flags from POS_LLH message - bit 0: rtk
         double llh_lat;
@@ -151,6 +159,9 @@ namespace swiftnav_piksi
         double llh_h_accuracy;
         double hdop;
 
+        ros::Duration rtk_timeout;
+        ros::Time last_rtk_status_t; // only used by the timeout check
+        ros::Time last_rtk_fix;
         unsigned int num_rtk_satellites;   //!< Number of satellites used in rtk soln
         unsigned int rtk_status;           //!< Flags from BASELINE_NED message
         double rtk_north;

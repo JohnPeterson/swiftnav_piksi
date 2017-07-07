@@ -48,6 +48,9 @@ namespace swiftnav_piksi
 		last_open_failure_count( 0 ),
         heartbeat_flags( 0 ),
 
+        llh_timeout(0.2),
+        last_llh_status_t(0.0),
+        last_llh_fix(0.0),
         num_llh_satellites( 0 ),
         llh_status( 0 ),
         llh_lat( 0.0 ),
@@ -56,6 +59,9 @@ namespace swiftnav_piksi
         llh_h_accuracy( 0.0 ),
         hdop( 1.0 ),
 
+        rtk_timeout(0.2),
+        last_rtk_status_t(0.0),
+        last_rtk_fix(0.0),
         rtk_status( 0 ),
         num_rtk_satellites( 0 ),
         rtk_north( 0.0 ),
@@ -130,10 +136,19 @@ namespace swiftnav_piksi
         std::string llh_pub_topic(name);
         llh_pub_topic.append("/fix");
 		llh_pub = nh.advertise<sensor_msgs::NavSatFix>( llh_pub_topic, 1 );
+        llh_pub = nh.advertise<sensor_msgs::NavSatFix>( llh_pub_topic, 1 );
+
+        std::string llh_status_topic(name);
+        llh_status_topic.append("/spp_status");
+        llh_status_pub = nh.advertise<sensor_msgs::NavSatStatus>( llh_status_topic, 1);
 
         std::string rtk_pub_topic(name);
         rtk_pub_topic.append("/rtkfix");
 		rtk_pub = nh.advertise<nav_msgs::Odometry>( rtk_pub_topic, 1 );
+
+        std::string rtk_status_topic(name);
+        rtk_status_topic.append("/rtk_status");
+        rtk_status_pub = nh.advertise<sensor_msgs::NavSatStatus>( rtk_status_topic, 1);
 
         std::string time_ref_topic(name);
         time_ref_topic.append("/time");
@@ -162,6 +177,23 @@ namespace swiftnav_piksi
 		if( time_pub )
 			time_pub.shutdown( );
 	}
+
+    void PIKSI::checkTimeout(const ros::TimerEvent& evt)
+    {
+        ros::Time cur = ros::Time::now();
+
+        // only start publishing rtk status messages this way if we haven't 
+        // gotten a fix in a while
+        if (cur - last_rtk_status_t > ros::Duration(0.15))
+        {
+            pubRTKStatus();
+        }
+
+        if (cur - last_llh_status_t > ros::Duration(0.15))
+        {
+            pubLLHStatus();
+        }
+    }
 
 	void heartbeat_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 	{
@@ -215,6 +247,7 @@ namespace swiftnav_piksi
 		}
 
 		class PIKSI *driver = (class PIKSI*) context;
+        driver->last_llh_fix = ros::Time::now();
 
 		msg_pos_llh_t llh = *(msg_pos_llh_t*) msg;
 
@@ -247,6 +280,8 @@ namespace swiftnav_piksi
         driver->llh_lon = llh.lon;
         driver->llh_height = llh.height;
         driver->llh_h_accuracy = llh.h_accuracy / 1000.0;
+
+        driver->pubLLHStatus(); // publish status message
 
 		return;
 	}
@@ -297,6 +332,58 @@ namespace swiftnav_piksi
 		return;
 	}
 */
+    void PIKSI::pubRTKStatus()
+    {
+        last_rtk_status_t = ros::Time::now();
+
+        sensor_msgs::NavSatStatus msg;
+        msg.status = sensor_msgs::NavSatStatus::STATUS_NO_FIX;
+
+        if (last_rtk_status_t - last_rtk_fix < rtk_timeout)
+        {
+            if (rtk_status == 1) // rtk fixed
+            {
+                msg.status = sensor_msgs::NavSatStatus::STATUS_GBAS_FIX + 1;
+            }
+            else // rtk float
+            {
+                msg.status = sensor_msgs::NavSatStatus::STATUS_GBAS_FIX; 
+            }
+        }
+
+        msg.service = sensor_msgs::NavSatStatus::SERVICE_GPS; // piksi is gps only
+
+        rtk_status_pub.publish(msg);
+    }
+
+    void PIKSI::pubLLHStatus()
+    {
+        last_llh_status_t = ros::Time::now();
+
+        sensor_msgs::NavSatStatus msg;
+        msg.status = sensor_msgs::NavSatStatus::STATUS_NO_FIX;
+
+        if (last_llh_status_t - last_llh_fix < llh_timeout)
+        {
+            if (llh_status == 0)
+            {
+                msg.status = sensor_msgs::NavSatStatus::STATUS_FIX;
+            }
+            else if (llh_status == 1) // rtk fixed
+            {
+                msg.status = sensor_msgs::NavSatStatus::STATUS_GBAS_FIX + 1;
+            }
+            else // rtk float
+            {
+                msg.status = sensor_msgs::NavSatStatus::STATUS_GBAS_FIX; 
+            }
+        }
+
+        msg.service = sensor_msgs::NavSatStatus::SERVICE_GPS; // piksi is gps only
+
+        llh_status_pub.publish(msg);
+    }
+
 	void baseline_ned_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 	{
 
@@ -307,6 +394,7 @@ namespace swiftnav_piksi
 		}
 
 		class PIKSI *driver = (class PIKSI*) context;
+        driver->last_rtk_fix = ros::Time::now();
 
 		msg_baseline_ned_t sbp_ned = *(msg_baseline_ned_t*) msg;
 
@@ -383,6 +471,8 @@ namespace swiftnav_piksi
         driver->rtk_height = rtk_odom_msg->pose.pose.position.z;
         // FIXME: rtk.h_accuracy doesn't work yet
         //driver->rtk_h_accuracy = rtk.h_accuracy / 1000.0;
+
+        driver->pubRTKStatus(); // publish and rtk fix status
 
 		return;
 	}
