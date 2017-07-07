@@ -98,6 +98,10 @@ namespace swiftnav_piksi
         nh_priv.param( "name", name, (std::string)"gps");
 
         nh_priv.getParam("odom_frame_id", odom_frame_id);
+
+        nh_priv.getParam("rtk_h_accuracy", hdop_to_rtk_h_accuracy);
+        nh_priv.getParam("rtk_v_accuracy", vdop_to_rtk_v_accuracy);
+        nh_priv.getParam("rtk_float_accuracy_factor", rtk_float_accuracy_factor);
 	}
 
 	PIKSI::~PIKSI( )
