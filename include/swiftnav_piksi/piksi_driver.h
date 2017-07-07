@@ -65,17 +65,16 @@ namespace swiftnav_piksi
 	class PIKSI
 	{
 	public:
-		PIKSI( const ros::NodeHandle &_nh,
-			const ros::NodeHandle &_nh_priv,
+		PIKSI(const ros::NodeHandle& _nh, const ros::NodeHandle& _nh_priv,
 			const std::string _port, const int _baud_rate);
-		~PIKSI( );
-		bool PIKSIOpen( );
-		void PIKSIClose( );
+		~PIKSI();
+		bool PIKSIOpen();
+		void PIKSIClose();
 	private:
-		bool PIKSIOpenNoLock( );
-		void PIKSICloseNoLock( );
-		void spin( );
-		void spinOnce( );
+		bool PIKSIOpenNoLock();
+		void PIKSICloseNoLock();
+		void spin();
+		void spinOnce();
 		/*!
 		 * \brief Diagnostic update callback
 		 *
@@ -94,6 +93,7 @@ namespace swiftnav_piksi
 		std::string port;
         int baud_rate;
 		std::string frame_id;
+        std::string odom_frame_id; // the odometry messages require a different frame_id to function with the robot pose ekf
         std::string name;
 		int8_t piksid;
 		boost::mutex cmd_lock;
@@ -160,6 +160,8 @@ namespace swiftnav_piksi
         double rtk_vel_north;
         double rtk_vel_east;
         double rtk_vel_up;
+        double rtk_vel_h_accuracy;
+        double rtk_vel_v_accuracy;
 
 		ros::Rate spin_rate;
 		boost::thread spin_thread;

@@ -12,15 +12,15 @@
 
 namespace swiftnav_piksi
 {	
-	PIKSI::PIKSI( const ros::NodeHandle &_nh,
-		const ros::NodeHandle &_nh_priv,
-		const std::string _port,
-        const int _baud_term_rate) :
+	PIKSI::PIKSI(const ros::NodeHandle& _nh, const ros::NodeHandle& _nh_priv, 
+                 const std::string _port, const int _baud_term_rate)
+    :
 		nh( _nh ),
 		nh_priv( _nh_priv ),
 		port( _port ),
         baud_rate(_baud_term_rate),
 		frame_id( "gps" ),
+        odom_frame_id( "map" ),
         name("gps"),
 		piksid( -1 ),
 
@@ -61,7 +61,13 @@ namespace swiftnav_piksi
         rtk_north( 0.0 ),
         rtk_east( 0.0 ),
         rtk_height( 0.0 ),
-        rtk_h_accuracy( 0.04 ),     // 4cm
+        rtk_h_accuracy( 1000.0 ),
+
+        rtk_vel_north( 0.0 ),
+        rtk_vel_east( 0.0 ),
+        rtk_vel_up( 0.0 ),
+        rtk_vel_h_accuracy( 1000.0 ),
+        rtk_vel_v_accuracy( 1000.0 ),
 
 		spin_rate( 2000 ),      // call sbp_process this fast to avoid dropped msgs
 		spin_thread( &PIKSI::spin, this )
@@ -79,6 +85,8 @@ namespace swiftnav_piksi
 
 		nh_priv.param( "frame_id", frame_id, (std::string)"gps" );
         nh_priv.param( "name", name, (std::string)"gps");
+
+        nh_priv.getParam("odom_frame_id", odom_frame_id);
 	}
 
 	PIKSI::~PIKSI( )
@@ -223,12 +231,8 @@ namespace swiftnav_piksi
 		llh_msg->altitude = llh.height;
 
         // populate the covariance matrix
-        // FIXME: llh.h/v_accuracy doesn't work yet, so use HDOP temporarily
-        // knowing that it's wrong, but in the ballpark
-        //double h_covariance = llh.h_accuracy * llh.h_accuracy;
-        //double v_covariance = llh.v_accuracy * llh.v_accuracy;
-        double h_covariance = driver->hdop * driver->hdop;
-        double v_covariance = driver->hdop * driver->hdop;
+        double h_covariance = (llh.h_accuracy / 1000.0) * (llh.h_accuracy / 1000.0); // accuracy originally in mm
+        double v_covariance = (llh.v_accuracy / 1000.0) * (llh.v_accuracy / 1000.0);
         llh_msg->position_covariance[0]  = h_covariance;   // x = 0, 0 
         llh_msg->position_covariance[4]  = h_covariance;   // y = 1, 1 
         llh_msg->position_covariance[8]  = v_covariance;   // z = 2, 2 
@@ -242,9 +246,7 @@ namespace swiftnav_piksi
         driver->llh_lat = llh.lat;
         driver->llh_lon = llh.lon;
         driver->llh_height = llh.height;
-        // FIXME: llh_h_accuracy doesn't work yet, so use hdop
-        //driver->llh_h_accuracy = llh.h_accuracy / 1000.0;
-        driver->llh_h_accuracy = driver->hdop;
+        driver->llh_h_accuracy = llh.h_accuracy / 1000.0;
 
 		return;
 	}
@@ -310,7 +312,7 @@ namespace swiftnav_piksi
 
 		nav_msgs::OdometryPtr rtk_odom_msg( new nav_msgs::Odometry );
 
-		rtk_odom_msg->header.frame_id = driver->frame_id;
+		rtk_odom_msg->header.frame_id = driver->odom_frame_id;
         // For best accuracy, header.stamp should maybe get tow converted to ros::Time
 		rtk_odom_msg->header.stamp = ros::Time::now( );
 
@@ -323,17 +325,17 @@ namespace swiftnav_piksi
         rtk_odom_msg->pose.pose.orientation.x = 0;
         rtk_odom_msg->pose.pose.orientation.y = 0;
         rtk_odom_msg->pose.pose.orientation.z = 0;
-        rtk_odom_msg->pose.pose.orientation.w = 0;
+        rtk_odom_msg->pose.pose.orientation.w = 1.0;
 
-        float h_covariance = 1.0e3;
-        float v_covariance = 0.0e3;
+        double h_covariance = sbp_ned.h_accuracy * sbp_ned.h_accuracy / 1.0e6;
+        double v_covariance = sbp_ned.v_accuracy * sbp_ned.v_accuracy / 1.0e6;
 
         // populate the pose covariance matrix if we have a good fix
         if ( 1 == sbp_ned.flags && 4 < sbp_ned.n_sats)
         {
             // FIXME: h_accuracy doesn't work yet, so use hard-coded 4cm
             // until it does
-            //h_covariance = (sbp_ned.h_accuracy * sbp_ned.h_accuracy) / 1.0e-6;
+            //
             //v_covariance = (sbp_ned.v_accuracy * sbp_ned.v_accuracy) / 1.0e-6;
             h_covariance = driver->rtk_h_accuracy * driver->rtk_h_accuracy;
             v_covariance = driver->rtk_h_accuracy * driver->rtk_h_accuracy;
@@ -427,9 +429,11 @@ namespace swiftnav_piksi
         // save velocity in the Twist member of a private Odometry msg, from where it
         // will be pulled to populate a published Odometry msg next time a
         // msg_baseline_ned_t message is received
-        driver->rtk_vel_north = sbp_vel.n/1000.0;
-        driver->rtk_vel_east = sbp_vel.e/1000.0;
-        driver->rtk_vel_up = -sbp_vel.d/1000.0;
+        driver->rtk_vel_north = sbp_vel.n / 1000.0;
+        driver->rtk_vel_east = sbp_vel.e / 1000.0;
+        driver->rtk_vel_up = -sbp_vel.d / 1000.0;
+        driver->rtk_vel_h_accuracy = sbp_vel.h_accuracy / 1000.0;
+        driver->rtk_vel_v_accuracy = sbp_vel.v_accuracy / 1000.0;
 
 		return;
 	}
