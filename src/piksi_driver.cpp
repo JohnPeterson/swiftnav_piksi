@@ -81,7 +81,7 @@ namespace swiftnav_piksi
         rtk_vel_v_accuracy( 1000.0 ),
 
 		spin_rate( 2000 ),      // call sbp_process this fast to avoid dropped msgs
-		spin_thread( &PIKSI::spin, this )
+		spin_thread()
 	{
         nh_priv.getParam("frame_id", frame_id);
         nh_priv.getParam("name", name);
@@ -121,6 +121,8 @@ namespace swiftnav_piksi
 		rtk_diag.setHardwareID( "piksi rtk" );
 		rtk_diag.add( "Piksi Status", this, &PIKSI::DiagCB );
 		rtk_diag.add( rtk_pub_freq );
+
+		spin_thread = boost::thread( &PIKSI::spin, this); // start thread last
 	}
 
 	PIKSI::~PIKSI( )
