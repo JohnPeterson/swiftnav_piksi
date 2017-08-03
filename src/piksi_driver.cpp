@@ -83,6 +83,34 @@ namespace swiftnav_piksi
 		spin_rate( 2000 ),      // call sbp_process this fast to avoid dropped msgs
 		spin_thread( &PIKSI::spin, this )
 	{
+        nh_priv.getParam("frame_id", frame_id);
+        nh_priv.getParam("name", name);
+        nh_priv.getParam("odom_frame_id", odom_frame_id);
+        nh_priv.getParam("rtk_h_accuracy", hdop_to_rtk_h_accuracy);
+        nh_priv.getParam("rtk_v_accuracy", vdop_to_rtk_v_accuracy);
+        nh_priv.getParam("rtk_float_accuracy_factor", rtk_float_accuracy_factor);
+
+        std::string llh_pub_topic(name);
+        llh_pub_topic.append("/fix");
+        llh_pub = nh.advertise<sensor_msgs::NavSatFix>( llh_pub_topic, 1 );
+
+        std::string llh_status_topic(name);
+        llh_status_topic.append("/spp_status");
+        llh_status_pub = nh.advertise<sensor_msgs::NavSatStatus>( llh_status_topic, 1);
+
+        std::string rtk_pub_topic(name);
+        rtk_pub_topic.append("/rtkfix");
+		rtk_pub = nh.advertise<nav_msgs::Odometry>( rtk_pub_topic, 1 );
+
+        std::string rtk_status_topic(name);
+        rtk_status_topic.append("/rtk_status");
+        rtk_status_pub = nh.advertise<sensor_msgs::NavSatStatus>( rtk_status_topic, 1);
+
+        std::string time_ref_topic(name);
+        time_ref_topic.append("/time");
+		time_pub = nh.advertise<sensor_msgs::TimeReference>( time_ref_topic, 1 );
+
+
 		cmd_lock.unlock( );
 		heartbeat_diag.setHardwareID( "piksi heartbeat" );
         heartbeat_diag.add( heartbeat_pub_freq );
@@ -93,15 +121,6 @@ namespace swiftnav_piksi
 		rtk_diag.setHardwareID( "piksi rtk" );
 		rtk_diag.add( "Piksi Status", this, &PIKSI::DiagCB );
 		rtk_diag.add( rtk_pub_freq );
-
-		nh_priv.getParam("frame_id", frame_id);
-        nh_priv.getParam("name", name);
-
-        nh_priv.getParam("odom_frame_id", odom_frame_id);
-
-        nh_priv.getParam("rtk_h_accuracy", hdop_to_rtk_h_accuracy);
-        nh_priv.getParam("rtk_v_accuracy", vdop_to_rtk_v_accuracy);
-        nh_priv.getParam("rtk_float_accuracy_factor", rtk_float_accuracy_factor);
 	}
 
 	PIKSI::~PIKSI( )
@@ -142,26 +161,6 @@ namespace swiftnav_piksi
 //		sbp_register_callback(&state, SBP_VEL_ECEF, &vel_ecefCallback, (void*) this, &vel_ecef_callback_node);
 		sbp_register_callback(&state, SBP_MSG_VEL_NED, &vel_ned_callback, (void*) this, &vel_ned_callback_node);
 
-        std::string llh_pub_topic(name);
-        llh_pub_topic.append("/fix");
-        llh_pub = nh.advertise<sensor_msgs::NavSatFix>( llh_pub_topic, 1 );
-
-        std::string llh_status_topic(name);
-        llh_status_topic.append("/spp_status");
-        llh_status_pub = nh.advertise<sensor_msgs::NavSatStatus>( llh_status_topic, 1);
-
-        std::string rtk_pub_topic(name);
-        rtk_pub_topic.append("/rtkfix");
-		rtk_pub = nh.advertise<nav_msgs::Odometry>( rtk_pub_topic, 1 );
-
-        std::string rtk_status_topic(name);
-        rtk_status_topic.append("/rtk_status");
-        rtk_status_pub = nh.advertise<sensor_msgs::NavSatStatus>( rtk_status_topic, 1);
-
-        std::string time_ref_topic(name);
-        time_ref_topic.append("/time");
-		time_pub = nh.advertise<sensor_msgs::TimeReference>( time_ref_topic, 1 );
-
 		return true;
 	}
 
@@ -180,10 +179,6 @@ namespace swiftnav_piksi
 		}
 		piksid = -1;
 		piksi_close( old_piksid );
-		if( llh_pub )
-			llh_pub.shutdown( );
-		if( time_pub )
-			time_pub.shutdown( );
 	}
 
     void PIKSI::checkTimeout(const ros::TimerEvent& evt)
