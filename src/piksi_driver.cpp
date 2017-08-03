@@ -417,6 +417,7 @@ namespace swiftnav_piksi
 		nav_msgs::OdometryPtr rtk_odom_msg( new nav_msgs::Odometry );
 
 		rtk_odom_msg->header.frame_id = driver->odom_frame_id;
+		rtk_odom_msg->child_frame_id = driver->frame_id;
         // For best accuracy, header.stamp should maybe get tow converted to ros::Time
 		rtk_odom_msg->header.stamp = ros::Time::now( );
 
