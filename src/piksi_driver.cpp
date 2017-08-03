@@ -94,8 +94,8 @@ namespace swiftnav_piksi
 		rtk_diag.add( "Piksi Status", this, &PIKSI::DiagCB );
 		rtk_diag.add( rtk_pub_freq );
 
-		nh_priv.param( "frame_id", frame_id, (std::string)"gps" );
-        nh_priv.param( "name", name, (std::string)"gps");
+		nh_priv.getParam("frame_id", frame_id);
+        nh_priv.getParam("name", name);
 
         nh_priv.getParam("odom_frame_id", odom_frame_id);
 
@@ -144,7 +144,6 @@ namespace swiftnav_piksi
 
         std::string llh_pub_topic(name);
         llh_pub_topic.append("/fix");
-		llh_pub = nh.advertise<sensor_msgs::NavSatFix>( llh_pub_topic, 1 );
         llh_pub = nh.advertise<sensor_msgs::NavSatFix>( llh_pub_topic, 1 );
 
         std::string llh_status_topic(name);
