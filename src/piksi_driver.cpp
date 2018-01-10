@@ -11,8 +11,8 @@
 #include <tf/tf.h>
 
 namespace swiftnav_piksi
-{	
-	PIKSI::PIKSI(const ros::NodeHandle& _nh, const ros::NodeHandle& _nh_priv, 
+{
+	PIKSI::PIKSI(const ros::NodeHandle& _nh, const ros::NodeHandle& _nh_priv,
                  const std::string _port, const int _baud_term_rate)
     :
 		nh( _nh ),
@@ -37,9 +37,9 @@ namespace swiftnav_piksi
 
 		llh_pub_freq( diagnostic_updater::FrequencyStatusParam(
                     &min_llh_rate, &max_llh_rate, 0.1, 50 ) ),
-		rtk_pub_freq( diagnostic_updater::FrequencyStatusParam( 
+		rtk_pub_freq( diagnostic_updater::FrequencyStatusParam(
                     &min_rtk_rate, &max_rtk_rate, 0.1, 50 ) ),
-		heartbeat_pub_freq( diagnostic_updater::FrequencyStatusParam( 
+		heartbeat_pub_freq( diagnostic_updater::FrequencyStatusParam(
                     &min_rtk_rate, &max_rtk_rate, 0.1, 50 ) ),
 
 		io_failure_count( 0 ),
@@ -187,7 +187,7 @@ namespace swiftnav_piksi
     {
         ros::Time cur = ros::Time::now();
 
-        // only start publishing rtk status messages this way if we haven't 
+        // only start publishing rtk status messages this way if we haven't
         // gotten a fix in a while
         if (cur - last_rtk_status_t > ros::Duration(0.15))
         {
@@ -207,7 +207,7 @@ namespace swiftnav_piksi
 			std::cerr << "Context void, OHSHIT" << std::endl;
 			return;
 		}
-		
+
 		msg_heartbeat_t hb = *(msg_heartbeat_t*) msg;
 
 		class PIKSI *driver = (class PIKSI*) context;
@@ -238,7 +238,7 @@ namespace swiftnav_piksi
 		time_msg->source = "gps";
 
 		driver->time_pub.publish( time_msg );
-        
+
 
 		return;
 	}
@@ -272,10 +272,10 @@ namespace swiftnav_piksi
         // double h_covariance = (llh.h_accuracy / 1000.0) * (llh.h_accuracy / 1000.0); // accuracy originally in mm
         // double v_covariance = (llh.v_accuracy / 1000.0) * (llh.v_accuracy / 1000.0);
         double h_covariance = 1000.0; // we don't know the accuracy
-        double v_covariance = 1000.0; 
-        llh_msg->position_covariance[0]  = h_covariance;   // x = 0, 0 
-        llh_msg->position_covariance[4]  = h_covariance;   // y = 1, 1 
-        llh_msg->position_covariance[8]  = v_covariance;   // z = 2, 2 
+        double v_covariance = 1000.0;
+        llh_msg->position_covariance[0]  = h_covariance;   // x = 0, 0
+        llh_msg->position_covariance[4]  = h_covariance;   // y = 1, 1
+        llh_msg->position_covariance[8]  = v_covariance;   // z = 2, 2
 
 		driver->llh_pub.publish( llh_msg );
 
@@ -300,7 +300,7 @@ namespace swiftnav_piksi
 			std::cerr << "Context void, OHSHIT" << std::endl;
 			return;
 		}
-		
+
 		msg_dops_t dops = *(msg_dops_t*) msg;
 
 		class PIKSI *driver = (class PIKSI*) context;
@@ -353,14 +353,10 @@ namespace swiftnav_piksi
 
         if (last_rtk_status_t - last_rtk_fix < rtk_timeout)
         {
-            if (rtk_status == 1) // rtk fixed
-            {
-                msg.status = sensor_msgs::NavSatStatus::STATUS_GBAS_FIX + 1;
-            }
-            else // rtk float
-            {
-                msg.status = sensor_msgs::NavSatStatus::STATUS_GBAS_FIX; 
-            }
+					  if (rtk_status >= 2)
+						{
+							msg.status = sensor_msgs::NavSatStatus::STATUS_GBAS_FIX;
+						}
         }
 
         msg.service = sensor_msgs::NavSatStatus::SERVICE_GPS; // piksi is gps only
@@ -387,7 +383,7 @@ namespace swiftnav_piksi
             }
             else // rtk float
             {
-                msg.status = sensor_msgs::NavSatStatus::STATUS_GBAS_FIX; 
+                msg.status = sensor_msgs::NavSatStatus::STATUS_GBAS_FIX;
             }
         }
 
@@ -410,6 +406,14 @@ namespace swiftnav_piksi
 
 		msg_baseline_ned_t sbp_ned = *(msg_baseline_ned_t*) msg;
 
+		// look through flags
+		if (sbp_ned.flags == 0 || (sbp_ned.flags == 1))
+		{
+			// 0 is invalid, 1 is reserved, 2 is Differential DiagnosticStatus
+			// 3 is float, 4 is fix
+			return;
+		}
+
 		nav_msgs::OdometryPtr rtk_odom_msg( new nav_msgs::Odometry );
 
 		rtk_odom_msg->header.frame_id = driver->odom_frame_id;
@@ -428,13 +432,13 @@ namespace swiftnav_piksi
         rtk_odom_msg->pose.pose.orientation.z = 0;
         rtk_odom_msg->pose.pose.orientation.w = 1.0;
 
-        // NOTE the sbp_ned.h_accuracy and sbp_ned.v_accuracy are not 
+        // NOTE the sbp_ned.h_accuracy and sbp_ned.v_accuracy are not
         // implemented for the piksi v1
 
         double h_covariance = (driver->hdop * driver->hdop_to_rtk_h_accuracy) * (driver->hdop * driver->hdop_to_rtk_h_accuracy);
         double v_covariance = (driver->vdop * driver->vdop_to_rtk_v_accuracy) * (driver->vdop * driver->vdop_to_rtk_v_accuracy);
 
-        if (sbp_ned.flags != 1) // in float add an extra fudge factor
+        if (sbp_ned.flags != 4) // in float add an extra fudge factor
         {
             h_covariance *= driver->rtk_float_accuracy_factor * driver->rtk_float_accuracy_factor;
             v_covariance *= driver->rtk_float_accuracy_factor * driver->rtk_float_accuracy_factor;
@@ -579,27 +583,27 @@ namespace swiftnav_piksi
 		}
 		else if( open_failure_count > last_open_failure_count )
         {
-			stat.summary( diagnostic_msgs::DiagnosticStatus::ERROR, 
+			stat.summary( diagnostic_msgs::DiagnosticStatus::ERROR,
                             "Open Failure Count Increase" );
         }
 		else if( io_failure_count > last_io_failure_count )
         {
-			stat.summary( diagnostic_msgs::DiagnosticStatus::WARN, 
+			stat.summary( diagnostic_msgs::DiagnosticStatus::WARN,
                             "I/O Failure Count Increase" );
         }
         else if( 0 != heartbeat_flags & 0x7 )
         {
-			stat.summary( diagnostic_msgs::DiagnosticStatus::ERROR, 
+			stat.summary( diagnostic_msgs::DiagnosticStatus::ERROR,
                             "Piksi Error indicated by heartbeat flags" );
         }
         else if( num_rtk_satellites < 5 )
         {
-			stat.summary( diagnostic_msgs::DiagnosticStatus::WARN, 
+			stat.summary( diagnostic_msgs::DiagnosticStatus::WARN,
                             "RTK Satellite fix invalid: too few satellites in view" );
         }
         else if( rtk_status != 1 )
         {
-			stat.summary( diagnostic_msgs::DiagnosticStatus::WARN, 
+			stat.summary( diagnostic_msgs::DiagnosticStatus::WARN,
                             "No GPS RTK fix" );
         }
 
