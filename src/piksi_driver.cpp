@@ -10,6 +10,12 @@
 #include <ros/time.h>
 #include <tf/tf.h>
 
+void extract_flags(const uint8_t& flags, uint8_t& fix_mode, bool& raim_repair)
+{
+	raim_repair = static_cast<bool>((flags & 0x80) >> 7);
+	fix_mode = (flags & 0x07);
+}
+
 namespace swiftnav_piksi
 {
 	PIKSI::PIKSI(const ros::NodeHandle& _nh, const ros::NodeHandle& _nh_priv,
@@ -251,12 +257,22 @@ namespace swiftnav_piksi
 			return;
 		}
 
-		class PIKSI *driver = (class PIKSI*) context;
-        driver->last_llh_fix = ros::Time::now();
-
 		msg_pos_llh_t llh = *(msg_pos_llh_t*) msg;
 
+		uint8_t llh_flag = 0;
+		bool llh_raim_repair = false;
+		extract_flags(llh.flags, llh_flag, llh_raim_repair);
+
+		if (llh_flag == 0)
+		{
+			// 1 is spp, 2 is DGNSS, 3 is float, 4 is fixed
+			return; // invalid fix
+		}
+
 		sensor_msgs::NavSatFixPtr llh_msg( new sensor_msgs::NavSatFix );
+
+		class PIKSI *driver = (class PIKSI*) context;
+        driver->last_llh_fix = ros::Time::now();
 
 		llh_msg->header.frame_id = driver->frame_id;
 		llh_msg->header.stamp = ros::Time::now( );
@@ -281,7 +297,7 @@ namespace swiftnav_piksi
 
         // populate diagnostic data
 		driver->llh_pub_freq.tick( );
-        driver->llh_status |= llh.flags;
+        driver->llh_status = llh_flag;
         driver->num_llh_satellites = llh.n_sats;
         driver->llh_lat = llh.lat;
         driver->llh_lon = llh.lon;
@@ -401,18 +417,21 @@ namespace swiftnav_piksi
 			return;
 		}
 
-		class PIKSI *driver = (class PIKSI*) context;
-        driver->last_rtk_fix = ros::Time::now();
-
 		msg_baseline_ned_t sbp_ned = *(msg_baseline_ned_t*) msg;
 
 		// look through flags
-		if (sbp_ned.flags == 0 || (sbp_ned.flags == 1))
+		uint8_t sbp_ned_flag = 0;
+		bool sbp_raim_repair = false;
+		extract_flags(sbp_ned.flags, sbp_ned_flag, sbp_raim_repair);
+		if (sbp_ned_flag == 0 || (sbp_ned_flag == 1))
 		{
 			// 0 is invalid, 1 is reserved, 2 is Differential DiagnosticStatus
 			// 3 is float, 4 is fix
 			return;
 		}
+
+		class PIKSI *driver = (class PIKSI*) context;
+				driver->last_rtk_fix = ros::Time::now();
 
 		nav_msgs::OdometryPtr rtk_odom_msg( new nav_msgs::Odometry );
 
@@ -438,7 +457,7 @@ namespace swiftnav_piksi
         double h_covariance = (driver->hdop * driver->hdop_to_rtk_h_accuracy) * (driver->hdop * driver->hdop_to_rtk_h_accuracy);
         double v_covariance = (driver->vdop * driver->vdop_to_rtk_v_accuracy) * (driver->vdop * driver->vdop_to_rtk_v_accuracy);
 
-        if (sbp_ned.flags != 4) // in float add an extra fudge factor
+        if (sbp_ned_flag != 4) // in float add an extra fudge factor
         {
             h_covariance *= driver->rtk_float_accuracy_factor * driver->rtk_float_accuracy_factor;
             v_covariance *= driver->rtk_float_accuracy_factor * driver->rtk_float_accuracy_factor;
@@ -479,7 +498,7 @@ namespace swiftnav_piksi
 
         // save diagnostic data
 		driver->rtk_pub_freq.tick( );
-        driver->rtk_status = sbp_ned.flags;
+        driver->rtk_status = sbp_ned_flag;
         driver->num_rtk_satellites = sbp_ned.n_sats;
 		driver->rtk_north = rtk_odom_msg->pose.pose.position.x;
 		driver->rtk_east = rtk_odom_msg->pose.pose.position.y;
