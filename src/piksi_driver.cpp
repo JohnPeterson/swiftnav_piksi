@@ -369,9 +369,10 @@ namespace swiftnav_piksi
 
         if (last_rtk_status_t - last_rtk_fix < rtk_timeout)
         {
+					  // 0 is Invalid, so just leave the No Fix
 					  if (rtk_status >= 2)
 						{
-							msg.status = sensor_msgs::NavSatStatus::STATUS_GBAS_FIX;
+							msg.status = rtk_status; // 2 is DGNSS, 3 is Float RTK, 4 is RTK Fix
 						}
         }
 
@@ -389,18 +390,18 @@ namespace swiftnav_piksi
 
         if (last_llh_status_t - last_llh_fix < llh_timeout)
         {
-            if (llh_status == 0)
+					  if (llh_status == 0)
+						{
+							msg.status = sensor_msgs::NavSatStatus::STATUS_NO_FIX;
+						}
+            else if (llh_status == 1)
             {
                 msg.status = sensor_msgs::NavSatStatus::STATUS_FIX;
             }
-            else if (llh_status == 1) // rtk fixed
-            {
-                msg.status = sensor_msgs::NavSatStatus::STATUS_GBAS_FIX + 1;
-            }
-            else // rtk float
-            {
-                msg.status = sensor_msgs::NavSatStatus::STATUS_GBAS_FIX;
-            }
+						else
+						{
+							msg.status = llh_status; // 2 is DGNSS, 3 is Float RTK, 4 is Fix RTK
+						}
         }
 
         msg.service = sensor_msgs::NavSatStatus::SERVICE_GPS; // piksi is gps only
